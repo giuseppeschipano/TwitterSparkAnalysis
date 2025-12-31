@@ -12,37 +12,43 @@ public class Main {
     public static void main(String[] args) {
         // 1. Configurazione Windows & Hadoop
         System.setProperty("hadoop.home.dir", "C:\\hadoop");
-
         System.setProperty("spark.hadoop.fs.file.impl", "org.apache.hadoop.fs.RawLocalFileSystem");
-        System.setProperty("spark.hadoop.fs.configuration", "org.apache.hadoop.conf.Configuration");
 
-        // 2. Patch per disabilitare il caricamento nativo
+        // 2. Patch per bypassare il codice nativo di Windows
         applyHadoopPatch();
 
-        System.out.println("Avvio Spark Session...");
+        System.out.println("Avvio Twitter Spark Analysis");
         SparkSession spark = null;
+
         try {
             spark = SparkSessionProvider.createSession();
+            spark.sparkContext().setLogLevel("ERROR");
 
             String dataPath = "D:\\TwitterSparkAnalysis\\data";
-            System.out.println("Cartella dati: " + dataPath);
-
-            // Trasformiamo il percorso in formato URI per evitare problemi di backslash
             String dataPathUri = new File(dataPath).toURI().toString();
 
-            System.out.println("Caricamento dati da: " + dataPathUri);
+            System.out.println("Cerco i file in: " + dataPath);
+
             DatasetLoader loader = new DatasetLoader(spark, dataPathUri);
             Dataset<Row> df = loader.loadAllCSVs();
 
-            if (df != null) {
-                System.out.println("Dataset collegato con successo!");
-                df.show(5);
+            if (df == null) {
+                System.err.println("Errore: df è nullo!");
+            } else {
+                System.out.println("Dataset non nullo, righe caricabili...");
+
+                System.out.println("\n STRUTTURA DELLE COLONNE ");
+                df.printSchema();
             }
+
         } catch (Exception e) {
-            System.err.println("Errore critico: " + e.getMessage());
+            System.err.println("ERRORE DURANTE L'ESECUZIONE: " + e.getMessage());
             e.printStackTrace();
         } finally {
-            if (spark != null) spark.stop();
+            if (spark != null) {
+                System.out.println("Chiusura Spark Session");
+                spark.stop();
+            }
         }
     }
 
@@ -58,9 +64,7 @@ public class Main {
             nl.setAccessible(true);
             nl.setBoolean(null, false);
 
-            System.out.println("Patch applicata. Codice nativo bypassato.");
         } catch (Exception e) {
-            System.out.println("Patch non applicata: " + e.getMessage());
         }
     }
 }

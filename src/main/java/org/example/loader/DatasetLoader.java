@@ -3,7 +3,6 @@ package org.example.loader;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
-import java.io.File;
 
 public class DatasetLoader {
 
@@ -24,6 +23,7 @@ public class DatasetLoader {
             return spark.read()
                     .option("header", "true")
                     .option("delimiter", ",")
+                    .option("multiLine", "true")
                     .option("inferSchema", "false")
                     .option("ignoreCorruptFiles", "true")
                     .option("maxCharsPerColumn", "-1") // Previene errori su tweet molto lunghi
@@ -35,7 +35,3 @@ public class DatasetLoader {
         }
     }
 }
-
-
-
-
