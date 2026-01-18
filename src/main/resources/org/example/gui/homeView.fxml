@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Text?>
+<?import javafx.scene.effect.DropShadow?>
+
+<StackPane xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="org.example.gui.HomeViewController"
+           prefWidth="1000" prefHeight="700"
+           style="-fx-background-color: linear-gradient(to bottom right, #1a2a6c, #b21f1f, #fdbb2d);">
+
+    <VBox alignment="CENTER" spacing="40">
+        <ImageView fx:id="splashImage" fitWidth="800" fitHeight="450" preserveRatio="true">
+            <image>
+                <Image url="@images/bidenvstrump.jpg"/>
+            </image>
+            <effect>
+                <DropShadow radius="30" color="#000000bb" />
+            </effect>
+        </ImageView>
+
+        <Text text="Analisi Tweet"
+              style="-fx-font-size: 52px;
+                     -fx-font-weight: bold;
+                     -fx-fill: white;
+                     -fx-font-family: 'Verdana';">
+            <effect>
+                <DropShadow radius="10" offsetX="3" offsetY="3" color="#000000ff" />
+            </effect>
+        </Text>
+    </VBox>
+</StackPane>

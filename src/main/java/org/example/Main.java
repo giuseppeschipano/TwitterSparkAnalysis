@@ -4,6 +4,7 @@ import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.example.loader.DatasetLoader;
+import org.example.query.BasicQuery;
 import org.example.spark.SparkSessionProvider;
 import java.io.File;
 import java.lang.reflect.Field;
@@ -30,17 +31,16 @@ public class Main {
             System.out.println("Cerco i file in: " + dataPath);
 
             DatasetLoader loader = new DatasetLoader(spark, dataPathUri);
-            Dataset<Row> df = loader.loadAllCSVs();
+            Dataset<Row> df = loader.loadDataset();
 
             if (df == null) {
-                System.err.println("Errore: df è nullo!");
+                System.err.println("Errore: df nullo!");
             } else {
-                System.out.println("Dataset non nullo, righe caricabili...");
-
                 System.out.println("\n STRUTTURA DELLE COLONNE ");
                 df.printSchema();
+                System.out.println("\n--- AVVIO QUERIES ---");
+                BasicQuery.runAll(df);
             }
-
         } catch (Exception e) {
             System.err.println("ERRORE DURANTE L'ESECUZIONE: " + e.getMessage());
             e.printStackTrace();
