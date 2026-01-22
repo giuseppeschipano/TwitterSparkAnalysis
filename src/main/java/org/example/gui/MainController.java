@@ -6,7 +6,6 @@ import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.scene.chart.*;
 import javafx.scene.control.*;
-import javafx.scene.layout.Pane;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
@@ -17,7 +16,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.example.loader.DatasetLoader;
-
 
 public class MainController {
 
@@ -81,7 +79,7 @@ public class MainController {
                 "Calcola vincitore per stato"
         );
         logArea.appendText("GUI pronta, seleziona una query.\n");
-        // Collegsmento il bottone
+        // Collegamento del bottone
         executeButton.setOnAction(e -> executeQuery());
     }
 
@@ -108,11 +106,9 @@ public class MainController {
                     ObservableList<Map<String, Object>> items = FXCollections.observableArrayList(row);
                     table.getColumns().clear();
                     TableColumn<Map<String, Object>, String> colDescrizione = new TableColumn<>("Descrizione");
-                    colDescrizione.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(
-                            data.getValue().get("Descrizione").toString()));
+                    colDescrizione.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get("Descrizione").toString()));
                     TableColumn<Map<String, Object>, String> colValore = new TableColumn<>("Valore");
-                    colValore.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(
-                            data.getValue().get("Valore").toString()));
+                    colValore.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get("Valore").toString()));
                     table.getColumns().addAll(colDescrizione, colValore);
                     table.setItems(items);
                     break;
@@ -138,9 +134,7 @@ public class MainController {
                     populateTable(result);
                     Map<String, Map<String, Number>> lineData = new LinkedHashMap<>();
                     Map<String, Number> serie = new LinkedHashMap<>();
-                    result.collectAsList().forEach(r ->
-                            serie.put(r.getAs("date").toString(), (Number) r.getAs("count")));
-
+                    result.collectAsList().forEach(r -> serie.put(r.getAs("date").toString(), (Number) r.getAs("count")));
                     lineData.put("Tweet giornalieri", serie);
                     updateLineChart(
                             "Andamento giornaliero dei tweet",
@@ -154,7 +148,6 @@ public class MainController {
                 case "Proporzione contenuti":
                     result = BasicQuery.proporzioneContenuti(df);
                     populateTable(result);
-                    // Grafico a torta per Retweet vs Originali
                     Map<String, Number> pieData = new LinkedHashMap<>();
                     result.collectAsList().forEach(r -> pieData.put(r.getAs("tipo"), (Number) r.getAs("count")));
                     updatePieChart("Proporzione contenuti", pieData);
@@ -163,28 +156,27 @@ public class MainController {
                 case "Top hashtag":
                     result = BasicQuery.topHashtag(df);
                     populateTable(result);
-                    // PieChart dei top 10 hashtag ---
                     Map<String, Number> pieTopHashtag = new LinkedHashMap<>();
                     result.collectAsList().forEach(r -> pieTopHashtag.put(r.getAs("tag"), (Number) r.getAs("count")));
                     updatePieChart("Top 10 Hashtag", pieTopHashtag);
                     break;
 
                 case "Top hashtag per stato":
-                    result = BasicQuery.topHashtagPerStato(df);
-                    populateTable(result);
-                    //Grafico a barre con hashtag per stato
-                    Map<String, Number> barTopHashtagStato = new LinkedHashMap<>();
-                    result.collectAsList().forEach(r ->
-                            barTopHashtagStato.put(r.getAs("state_clean") + " - " + r.getAs("tag"), (Number) r.getAs("count"))
+                    Dataset<Row> resultTop = BasicQuery.topHashtagPerStato(df);
+                    populateTable(resultTop);
+                    updateTopHashtagPerStatoBarChart(
+                            "Top 5 Hashtag per Stato",
+                            "Stato",
+                            "Numero Tweet",
+                            resultTop
                     );
-                    updateBarChart("Top 5 Hashtag per Stato", "Stato - Hashtag", barTopHashtagStato);
                     break;
 
                 case "Intenzioni di voto":
                     result = BasicQuery.hashtagIntenzioniVoto(df);
                     populateTable(result);
                     Map<String, Number> pieDataVote = new LinkedHashMap<>();
-                    result.collectAsList().forEach(r -> pieDataVote.put(r.getAs("tag"), (Number) r.getAs("tweet_count")));
+                    result.collectAsList().forEach(r -> pieDataVote.put(r.getAs("voto_utente"), (Number) r.getAs("tweet_count")));
                     updatePieChart("Tweet per candidato (coerenti)", pieDataVote);
                     break;
 
@@ -199,7 +191,6 @@ public class MainController {
                 case "Evoluzione tweet per candidato":
                     result = BasicQuery.evoluzioneTweetPerCandidato(df);
                     populateTable(result);
-                    // Grafico a linee
                     Map<String, Map<String, Number>> lineChartData = new LinkedHashMap<>();
                     result.collectAsList().forEach(r -> {
                         String candidato = r.getAs("voto_utente");
@@ -214,27 +205,21 @@ public class MainController {
                 case "Calcola vincitore per stato":
                     Dataset<Row> vincitorePerStato = BasicQuery.calcolaVincitorePerStato(df);
                     populateTable(vincitorePerStato);
-                    //Grafico a barre: differenza voti tra i candidati per stato
                     Map<String, Number> diffMap = new LinkedHashMap<>();
-                    vincitorePerStato.collectAsList().forEach(r -> diffMap.put(
-                            r.getAs("state_clean"),
-                            (Number) r.getAs("Differenza")
-                    ));
+                    vincitorePerStato.collectAsList().forEach(r -> diffMap.put(r.getAs("state_clean"), (Number) r.getAs("Differenza")));
                     updateBarChart("Differenza voti per stato", "Stato", diffMap);
-                    //Grafico a torta: distribuzione totale vincitori
                     Map<String, Number> pieDataVincitori = new LinkedHashMap<>();
-                    vincitorePerStato.groupBy("Vincitore").count().collectAsList()
-                            .forEach(r -> pieDataVincitori.put(r.getAs("Vincitore"), (Number) r.getAs("count")));
+                    vincitorePerStato.groupBy("Vincitore").count().collectAsList().forEach(r -> pieDataVincitori.put(r.getAs("Vincitore"), (Number) r.getAs("count")));
                     updatePieChart("Numero stati vinti per candidato", pieDataVincitori);
                     break;
                 default:
                     logArea.appendText("Query eseguita. Controlla console per i dettagli.\n");
             }
-
         } catch (Exception ex) {
             logArea.appendText("Errore esecuzione query: " + ex.getMessage() + "\n");
         }
     }
+
 
     private void populateTable(Dataset<Row> dataset) {
         table.getColumns().clear();
@@ -256,7 +241,6 @@ public class MainController {
                     }
                     return map;
                 }).toList();
-
         ObservableList<Map<String, Object>> items = FXCollections.observableArrayList(rows);
         table.setItems(items);
         if (dataset.count() > MAX_ROWS) {
@@ -297,6 +281,35 @@ public class MainController {
                 series.setName(seriesName);
                 map.forEach((x, y) -> series.getData().add(new XYChart.Data<>(x, y)));
                 lineChart.getData().add(series);
+            });
+        });
+    }
+
+    private void updateTopHashtagPerStatoBarChart(
+            String title,
+            String xLabel,
+            String yLabel,
+            Dataset<Row> dataset
+    ) {
+        Platform.runLater(() -> {
+            barChart.setTitle(title);
+            xAxis.setLabel(xLabel);
+            yAxis.setLabel(yLabel);
+            barChart.getData().clear();
+            Map<String, Map<String, Number>> data = new LinkedHashMap<>();
+            dataset.collectAsList().forEach(r -> {
+                String stato = r.getAs("state_clean");
+                String hashtag = r.getAs("tag");
+                Number count = (Number) r.getAs("count");
+                data.computeIfAbsent(hashtag, k -> new LinkedHashMap<>()).put(stato, count);
+            });
+            data.forEach((hashtag, map) -> {
+                XYChart.Series<String, Number> series = new XYChart.Series<>();
+                series.setName(hashtag);
+                map.forEach((stato, value) -> {
+                    series.getData().add(new XYChart.Data<>(stato, value));
+                });
+                barChart.getData().add(series);
             });
         });
     }
