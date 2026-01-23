@@ -16,12 +16,10 @@ public class HomeViewController {
 
     @FXML
     public void initialize() {
-        // Mostra  per 10 secondi
-        PauseTransition delay = new PauseTransition(Duration.seconds(10));
+        PauseTransition delay = new PauseTransition(Duration.seconds(10)); // Mostra  per 10 secondi
         delay.setOnFinished(event -> {
             openMainWindow();
-            // Chiusura splash
-            splashImage.getScene().getWindow().hide();
+            splashImage.getScene().getWindow().hide(); // Chiusura splash
         });
         delay.play();
     }

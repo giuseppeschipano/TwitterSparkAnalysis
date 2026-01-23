@@ -18,10 +18,9 @@ public class CsvToParquetConverter {
     public static void main(String[] args) {
         SparkSession spark = SparkSession.builder()
                 .appName("CSV to Parquet Converter")
-                .master("local[2]")
+                .master("local[*]")
                 .config("spark.driver.memory", "4g")
                 .getOrCreate();
-
         Dataset<Row> tempDf = null;
         for (int i = 1; i <= 31; i++) {
             String csvPath = "D:\\TwitterSparkAnalysis\\data\\tweet_USA_" + i + "_october.csv";
@@ -37,8 +36,7 @@ public class CsvToParquetConverter {
                     .option("inferSchema", "false")
                     .option("ignoreCorruptFiles", "true")
                     .csv(csvPath)
-                    // Per prototipo GUI: solo 10% dati
-                    .sample(0.1);
+                    .sample(0.15); //solo 15% dati
             tempDf = (tempDf == null) ? df : tempDf.union(df);
         }
         if (tempDf != null) {
@@ -49,7 +47,6 @@ public class CsvToParquetConverter {
             tempDf.write()
                     .mode("overwrite")
                     .parquet(parquetPath);
-
             System.out.println("Conversione completata.");
         } else {
             System.err.println("[ERRORE] Nessun CSV caricato, controlla la cartella data.");

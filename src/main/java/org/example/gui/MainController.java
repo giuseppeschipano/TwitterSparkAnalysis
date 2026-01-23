@@ -66,7 +66,7 @@ public class MainController {
         }).start();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         querySelector.getItems().addAll(
-                "Numero totale tweet",
+                "Numero di tweet considerati",
                 "Distribuzione tweet per stato",
                 "Distribuzione tweet reali per stato",
                 "Andamento giornaliero tweet",
@@ -101,7 +101,7 @@ public class MainController {
                     logArea.appendText("[TOTALE TWEET]\n");
                     logArea.appendText("Numero totale di tweet nel dataset: " + total + "\n\n");
                     Map<String, Object> row = new HashMap<>();
-                    row.put("Descrizione", "Numero totale di tweet");
+                    row.put("Descrizione", "Numero totale di tweet considerati");
                     row.put("Valore", total);
                     ObservableList<Map<String, Object>> items = FXCollections.observableArrayList(row);
                     table.getColumns().clear();
@@ -120,6 +120,7 @@ public class MainController {
                     result.collectAsList().forEach(r -> map.put(r.getAs("normalized_state"), (Number) r.getAs("count")));
                     updateBarChart("Tweet per Stato", "Stato", map);
                     break;
+
 
                 case "Distribuzione tweet reali per stato":
                     result = BasicQuery.distribuzioneTweetPerStato2(df);

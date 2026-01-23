@@ -20,9 +20,9 @@ public class BasicQuery {
         registerNormalizeStateUDF(df);
         numeroTotaleTweet(df);
         distribuzioneTweetPerStato1(df);
-        distribuzioneTweetPerStato2(df);
+        distribuzioneTweetPerStato2(df); //*
         andamentoGiornalieroTweet(df);
-        proporzioneContenuti(df);
+        proporzioneContenuti(df); //*
         topHashtag(df);
         topHashtagPerStato(df);
         hashtagIntenzioniVoto(df);
@@ -67,7 +67,7 @@ public class BasicQuery {
 
     public static void numeroTotaleTweet(Dataset<Row> df) {
         System.out.println("\n[TOTALE TWEET]");
-        System.out.println("Numero totale di tweet: " + df.count());
+        System.out.println("Numero di tweet considerati: " + df.count());
     }
 
     public static Dataset<Row> distribuzioneTweetPerStato1(Dataset<Row> df) {
