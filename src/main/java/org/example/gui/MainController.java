@@ -68,9 +68,7 @@ public class MainController {
         querySelector.getItems().addAll(
                 "Numero di tweet considerati",
                 "Distribuzione tweet per stato",
-                "Distribuzione tweet reali per stato",
                 "Andamento giornaliero tweet",
-                "Proporzione contenuti",
                 "Top hashtag",
                 "Top hashtag per stato",
                 "Intenzioni di voto",
@@ -96,7 +94,7 @@ public class MainController {
 
             switch (query) {
 
-                case "Numero totale tweet":
+                case "Numero di tweet considerati":
                     long total = df.count();
                     logArea.appendText("[TOTALE TWEET]\n");
                     logArea.appendText("Numero totale di tweet nel dataset: " + total + "\n\n");
@@ -121,15 +119,6 @@ public class MainController {
                     updateBarChart("Tweet per Stato", "Stato", map);
                     break;
 
-
-                case "Distribuzione tweet reali per stato":
-                    result = BasicQuery.distribuzioneTweetPerStato2(df);
-                    populateTable(result);
-                    Map<String, Number> graficoData = new LinkedHashMap<>();
-                    result.collectAsList().forEach(r -> graficoData.put(r.getAs("state"), (Number) r.getAs("tweet_reali")));
-                    updateBarChart("Tweet reali per stato", "Stato", graficoData);
-                    break;
-
                 case "Andamento giornaliero tweet":
                     result = BasicQuery.andamentoGiornalieroTweet(df);
                     populateTable(result);
@@ -143,15 +132,6 @@ public class MainController {
                             "Numero tweet",
                             lineData
                     );
-                    break;
-
-
-                case "Proporzione contenuti":
-                    result = BasicQuery.proporzioneContenuti(df);
-                    populateTable(result);
-                    Map<String, Number> pieData = new LinkedHashMap<>();
-                    result.collectAsList().forEach(r -> pieData.put(r.getAs("tipo"), (Number) r.getAs("count")));
-                    updatePieChart("Proporzione contenuti", pieData);
                     break;
 
                 case "Top hashtag":
@@ -194,11 +174,13 @@ public class MainController {
                     populateTable(result);
                     Map<String, Map<String, Number>> lineChartData = new LinkedHashMap<>();
                     result.collectAsList().forEach(r -> {
-                        String candidato = r.getAs("voto_utente");
                         String date = r.getAs("date").toString();
-                        Number count = (Number) r.getAs("count");
-                        lineChartData.putIfAbsent(candidato, new LinkedHashMap<>());
-                        lineChartData.get(candidato).put(date, count);
+                        Number bidenCount = (Number) r.getAs("Biden");
+                        Number trumpCount = (Number) r.getAs("Trump");
+                        lineChartData.putIfAbsent("Biden", new LinkedHashMap<>());
+                        lineChartData.putIfAbsent("Trump", new LinkedHashMap<>());
+                        lineChartData.get("Biden").put(date, bidenCount);
+                        lineChartData.get("Trump").put(date, trumpCount);
                     });
                     updateLineChart("Evoluzione Tweet per candidato", "Data", "Numero Tweet", lineChartData);
                     break;
