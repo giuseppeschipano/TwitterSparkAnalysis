@@ -1,13 +1,11 @@
 package org.example.query;
 
-import org.apache.spark.sql.Column;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.expressions.Window;
 import java.util.Arrays;
 import java.util.List;
 import static org.apache.spark.sql.functions.*;
-
 
 public class BasicQuery {
 
@@ -127,7 +125,6 @@ public class BasicQuery {
                 .groupBy("tag").count()
                 .orderBy(desc("count"))
                 .limit(10);
-
         return top100;
     }
 
@@ -203,109 +200,75 @@ public class BasicQuery {
     }
 
 
-    // Tweet totali per intenzioni di voto (utenti coerenti)
-
+    // Tweet totali per intenzioni di voto (utenti coerenti), misura il volume di tweet politicamente schierati
     public static Dataset<Row> hashtagIntenzioniVoto(Dataset<Row> df) {
-        // Liste dei tag come array di lit() per Java
-        Column[] bidenCols = new Column[] { lit("covid19"), lit("bidenharris2020"), lit("biden") };
-        Column[] trumpCols = new Column[] { lit("trump"), lit("maga"), lit("trump2020") };
+        List<String> bidenTags = Arrays.asList("covid19", "bidenharris2020", "biden");
+        List<String> trumpTags = Arrays.asList("trump", "maga", "trump2020");
 
-        // Pulizia hashtag e array
-        Dataset<Row> dfWithArray = df
+        //Flag dei tweet per candidato
+        Dataset<Row> flaggedTweets = df
                 .filter(col("hashtags").isNotNull().and(not(col("hashtags").equalTo("[]"))))
-                .withColumn("hashtags_array", split(lower(regexp_replace(col("hashtags"), "[\\[\\]\"]", "")), ","))
-                .withColumn("hashtags_array", expr("transform(hashtags_array, x -> trim(x))")); // rimuove spazi
+                .withColumn("hashtags_clean", lower(regexp_replace(col("hashtags"), "[\\[\\]\"]", "")))
+                .withColumn("isBiden",
+                        array_contains(split(col("hashtags_clean"), ","), bidenTags.get(0))
+                                .or(array_contains(split(col("hashtags_clean"), ","), bidenTags.get(1)))
+                                .or(array_contains(split(col("hashtags_clean"), ","), bidenTags.get(2))))
+                .withColumn("isTrump",
+                        array_contains(split(col("hashtags_clean"), ","), trumpTags.get(0))
+                                .or(array_contains(split(col("hashtags_clean"), ","), trumpTags.get(1)))
+                                .or(array_contains(split(col("hashtags_clean"), ","), trumpTags.get(2))))
+                .filter(col("isBiden").notEqual(col("isTrump"))); // elimina tweet misti
 
-        // Filtriamo i tweet misti (escludi quelli con hashtag di entrambi)
-        Dataset<Row> tweetsCoerenti = dfWithArray.filter(
-                (size(array_intersect(col("hashtags_array"), array(bidenCols))).gt(0)
-                        .and(size(array_intersect(col("hashtags_array"), array(trumpCols))).equalTo(0)))
-                        .or(
-                                size(array_intersect(col("hashtags_array"), array(trumpCols))).gt(0)
-                                        .and(size(array_intersect(col("hashtags_array"), array(bidenCols))).equalTo(0)))
-        );
-
-        // Esplodiamo gli hashtag coerenti per contare ogni tweet
-        Dataset<Row> tagsExploded = tweetsCoerenti
-                .withColumn("tag", explode(col("hashtags_array")));
-
-        // Selezioniamo utenti coerenti (1 utente = 1 candidato)
-        Dataset<Row> validUsers = tagsExploded
-                .groupBy("user_id_str")
-                .agg(
-                        count(when(col("tag").isin("covid19","bidenharris2020","biden"), 1)).as("b_count"),
-                        count(when(col("tag").isin("trump","maga","trump2020"), 1)).as("t_count")
-                )
-                .filter(
-                        (col("b_count").gt(0).and(col("t_count").equalTo(0)))
-                                .or(col("t_count").gt(0).and(col("b_count").equalTo(0)))
-                );
-
-        Dataset<Row> pureTweets = tagsExploded.join(validUsers, "user_id_str");
-
-        // Mappiamo ogni hashtag al candidato
-        Dataset<Row> votoTweets = pureTweets.withColumn("voto_utente",
-                        when(col("tag").isin("covid19","bidenharris2020","biden"), "Biden")
-                                .when(col("tag").isin("trump","maga","trump2020"), "Trump"))
-                .filter(col("voto_utente").isNotNull());
-
-        // Raggruppiamo per candidato e contiamo tutti i tweet coerenti
-        Dataset<Row> result = votoTweets
-                .groupBy("voto_utente")
+        // Aggregazione per candidato
+        Dataset<Row> result = flaggedTweets
+                .withColumn("voto", when(col("isBiden"), "Biden").otherwise("Trump"))
+                .groupBy("voto")
                 .count()
                 .withColumnRenamed("count", "tweet_count")
                 .orderBy(desc("tweet_count"));
-
         return result;
     }
 
 
 
     // Utenti unici per intenzioni di voto
-
-
     public static Dataset<Row> utentiUniciIntenzioniVoto(Dataset<Row> df) {
-        // Lista dei tag come array di lit()
-        Column[] bidenCols = new Column[] { lit("covid19"), lit("bidenharris2020"), lit("biden") };
-        Column[] trumpCols = new Column[] { lit("trump"), lit("maga"), lit("trump2020") };
+        List<String> bidenTags = Arrays.asList("covid19", "bidenharris2020", "biden");
+        List<String> trumpTags = Arrays.asList("trump", "maga", "trump2020");
 
-        // Pulizia hashtag e array
-        Dataset<Row> dfWithArray = df
+        // Flag dei tweet per candidato
+        Dataset<Row> flaggedTweets = df
                 .filter(col("hashtags").isNotNull().and(not(col("hashtags").equalTo("[]"))))
-                .withColumn("hashtags_array", split(lower(regexp_replace(col("hashtags"), "[\\[\\]\"]", "")), ","))
-                .withColumn("hashtags_array", expr("transform(hashtags_array, x -> trim(x))"));
+                .withColumn("hashtags_clean", lower(regexp_replace(col("hashtags"), "[\\[\\]\"]", "")))
+                .withColumn("isBiden",
+                        array_contains(split(col("hashtags_clean"), ","), bidenTags.get(0))
+                                .or(array_contains(split(col("hashtags_clean"), ","), bidenTags.get(1)))
+                                .or(array_contains(split(col("hashtags_clean"), ","), bidenTags.get(2))))
+                .withColumn("isTrump",
+                        array_contains(split(col("hashtags_clean"), ","), trumpTags.get(0))
+                                .or(array_contains(split(col("hashtags_clean"), ","), trumpTags.get(1)))
+                                .or(array_contains(split(col("hashtags_clean"), ","), trumpTags.get(2))))
+                .filter(col("isBiden").notEqual(col("isTrump"))); // elimina tweet misti
 
-        // Filtriamo i tweet misti
-        Dataset<Row> tweetsCoerenti = dfWithArray.filter(
-                (size(array_intersect(col("hashtags_array"), array(bidenCols))).gt(0)
-                        .and(size(array_intersect(col("hashtags_array"), array(trumpCols))).equalTo(0)))
-                        .or(
-                                size(array_intersect(col("hashtags_array"), array(trumpCols))).gt(0)
-                                        .and(size(array_intersect(col("hashtags_array"), array(bidenCols))).equalTo(0)))
-        );
-
-        // Esplodiamo gli hashtag coerenti
-        Dataset<Row> tagsExploded = tweetsCoerenti
-                .withColumn("tag", explode(col("hashtags_array")));
-
-        // Selezioniamo utenti coerenti
-        Dataset<Row> validUsers = tagsExploded
+        // Determiniamo utenti coerenti
+        Dataset<Row> utentiCoerenti = flaggedTweets
                 .groupBy("user_id_str")
                 .agg(
-                        count(when(col("tag").isin("covid19","bidenharris2020","biden"), 1)).as("b_count"),
-                        count(when(col("tag").isin("trump","maga","trump2020"), 1)).as("t_count")
+                        sum(when(col("isBiden"), 1).otherwise(0)).as("b_count"),
+                        sum(when(col("isTrump"), 1).otherwise(0)).as("t_count")
                 )
                 .filter(
                         (col("b_count").gt(0).and(col("t_count").equalTo(0)))
                                 .or(col("t_count").gt(0).and(col("b_count").equalTo(0)))
                 );
 
-        // 1 voto per utente coerente
-        Dataset<Row> result = validUsers
+        // Conteggio utenti unici coerenti
+        Dataset<Row> result = utentiCoerenti
                 .withColumn("elettore", when(col("b_count").gt(0), "Biden").otherwise("Trump"))
                 .groupBy("elettore")
                 .count()
-                .withColumnRenamed("count", "utenti_unici");
+                .withColumnRenamed("count", "utenti_unici")
+                .orderBy(desc("utenti_unici"));
 
         return result;
     }
@@ -314,45 +277,62 @@ public class BasicQuery {
 
     //volume
     public static Dataset<Row> evoluzioneTweetPerCandidato(Dataset<Row> dfTweets) {
+
         List<String> bidenTags = Arrays.asList("covid19", "bidenharris2020", "biden");
         List<String> trumpTags = Arrays.asList("trump", "maga", "trump2020");
 
-        // Estrazione hashtag e pulizia
-        Dataset<Row> tagsExploded = dfTweets
+        // Flag dei tweet per candidato
+        Dataset<Row> flaggedTweets = dfTweets
                 .filter(col("hashtags").isNotNull().and(not(col("hashtags").equalTo("[]"))))
-                .withColumn("tag", explode(split(lower(regexp_replace(col("hashtags"), "[\\[\\]\"]", "")), ",")))
-                .withColumn("tag", trim(col("tag")));
+                .withColumn("hashtags_clean", lower(regexp_replace(col("hashtags"), "[\\[\\]\"]", "")))
+                .withColumn("isBiden",
+                        array_contains(split(col("hashtags_clean"), ","), bidenTags.get(0))
+                                .or(array_contains(split(col("hashtags_clean"), ","), bidenTags.get(1)))
+                                .or(array_contains(split(col("hashtags_clean"), ","), bidenTags.get(2))))
+                .withColumn("isTrump",
+                        array_contains(split(col("hashtags_clean"), ","), trumpTags.get(0))
+                                .or(array_contains(split(col("hashtags_clean"), ","), trumpTags.get(1)))
+                                .or(array_contains(split(col("hashtags_clean"), ","), trumpTags.get(2))))
+                .filter(col("isBiden").notEqual(col("isTrump"))); // elimina tweet misti
 
-        // Identificazione utenti coerenti: 1 utente = 1 candidato
-        Dataset<Row> utentiCoerenti = tagsExploded
+        // Determiniamo utenti coerenti
+        Dataset<Row> utentiCoerenti = flaggedTweets
                 .groupBy("user_id_str")
                 .agg(
-                        count(when(col("tag").isin(bidenTags.toArray()), 1)).as("b_count"),
-                        count(when(col("tag").isin(trumpTags.toArray()), 1)).as("t_count")
+                        sum(when(col("isBiden"), 1).otherwise(0)).as("b_count"),
+                        sum(when(col("isTrump"), 1).otherwise(0)).as("t_count")
                 )
-                .filter((col("b_count").gt(0).and(col("t_count").equalTo(0)))
-                        .or(col("t_count").gt(0).and(col("b_count").equalTo(0))));
-        Dataset<Row> pureTweets = tagsExploded.join(utentiCoerenti, "user_id_str")
-                .withColumn("voto_utente",
-                        when(col("tag").isin(bidenTags.toArray()), "Biden")
-                                .when(col("tag").isin(trumpTags.toArray()), "Trump"))
+                .filter(
+                        (col("b_count").gt(0).and(col("t_count").equalTo(0)))
+                                .or(col("t_count").gt(0).and(col("b_count").equalTo(0)))
+                );
+
+        // Recuperiamo solo i tweet degli utenti coerenti e aggiungiamo voto
+        Dataset<Row> pureTweets = flaggedTweets
+                .join(utentiCoerenti.select("user_id_str"), "user_id_str")
+                .withColumn("voto", when(col("isBiden"), "Biden").otherwise("Trump"))
                 .withColumn("date", to_date(col("created_at"), "yyyy-MM-dd"))
                 .filter(col("date").isNotNull());
-        Dataset<Row> evoluzionePivot = pureTweets
+
+        //  Aggregazione finale per giorno
+        Dataset<Row> evoluzione = pureTweets
                 .groupBy("date")
-                .pivot("voto_utente", Arrays.asList("Biden", "Trump"))
-                .count()
-                .na().fill(0) //se un candidato non ha tweet quel giorno
+                .agg(
+                        sum(when(col("voto").equalTo("Biden"), 1).otherwise(0)).as("Biden"),
+                        sum(when(col("voto").equalTo("Trump"), 1).otherwise(0)).as("Trump")
+                )
                 .orderBy("date");
-        return evoluzionePivot;
+        return evoluzione;
     }
+
 
     public static Dataset<Row> calcolaVincitorePerStato(Dataset<Row> dfTweets) {
         List<String> bidenTags = Arrays.asList("covid19", "bidenharris2020", "biden");
         List<String> trumpTags = Arrays.asList("trump", "maga", "trump2020");
 
-        // Normalizzazione stato
-        Dataset<Row> dfNormalized = dfTweets.withColumn("state_clean",
+        // Normalizzazione dello stato
+        Dataset<Row> dfNormalized = dfTweets
+                .withColumn("state_clean",
                         when(col("location").rlike("(?i)AL|Alabama"), "Alabama")
                                 .when(col("location").rlike("(?i)AK|Alaska"), "Alaska")
                                 .when(col("location").rlike("(?i)AZ|Arizona"), "Arizona")
@@ -403,45 +383,50 @@ public class BasicQuery {
                                 .when(col("location").rlike("(?i)WV|West Virginia"), "West Virginia")
                                 .when(col("location").rlike("(?i)WI|Wisconsin"), "Wisconsin")
                                 .when(col("location").rlike("(?i)WY|Wyoming"), "Wyoming")
-                                .otherwise("Other")
-                )
+                                .otherwise("Other"))
                 .filter(col("state_clean").notEqual("Other"))
                 .filter(col("user_id_str").isNotNull());
 
-        // Creiamo array di hashtag puliti
-        Dataset<Row> dfWithArray = dfNormalized
-                .withColumn("hashtags_array", split(lower(regexp_replace(col("hashtags"), "[\\[\\]\"]", "")), ","))
-                .withColumn("hashtags_array", expr("transform(hashtags_array, x -> trim(x))"));
+        // Flag dei tweet per candidato (senza explode)
+        Dataset<Row> flaggedTweets = dfNormalized
+                .withColumn("hashtags_clean", lower(regexp_replace(col("hashtags"), "[\\[\\]\"]", "")))
+                .withColumn("isBiden",
+                        array_contains(split(col("hashtags_clean"), ","), bidenTags.get(0))
+                                .or(array_contains(split(col("hashtags_clean"), ","), bidenTags.get(1)))
+                                .or(array_contains(split(col("hashtags_clean"), ","), bidenTags.get(2))))
+                .withColumn("isTrump",
+                        array_contains(split(col("hashtags_clean"), ","), trumpTags.get(0))
+                                .or(array_contains(split(col("hashtags_clean"), ","), trumpTags.get(1)))
+                                .or(array_contains(split(col("hashtags_clean"), ","), trumpTags.get(2))))
+                .filter(col("isBiden").notEqual(col("isTrump"))); // elimina tweet misti
 
-        // Filtriamo utenti coerenti (esclude tweet misti)
-        Dataset<Row> utentiCoerenti = dfWithArray
+        // Identificazione utenti coerenti (1 utente = 1 voto)
+        Dataset<Row> utentiCoerenti = flaggedTweets
                 .groupBy("user_id_str", "state_clean")
                 .agg(
-                        collect_list("hashtags_array").as("hashtags_list")
+                        sum(when(col("isBiden"), 1).otherwise(0)).as("biden_count"),
+                        sum(when(col("isTrump"), 1).otherwise(0)).as("trump_count")
                 )
-                .withColumn("biden_count",
-                        expr("aggregate(hashtags_list, 0L, (acc, x) -> acc + size(array_intersect(x, array('"
-                                + String.join("','", bidenTags) + "'))))"))
-                .withColumn("trump_count",
-                        expr("aggregate(hashtags_list, 0L, (acc, x) -> acc + size(array_intersect(x, array('"
-                                + String.join("','", trumpTags) + "'))))"))
-                .filter((col("biden_count").gt(0).and(col("trump_count").equalTo(0)))
-                        .or(col("trump_count").gt(0).and(col("biden_count").equalTo(0))))
-                .withColumn("voto_utente",
-                        when(col("biden_count").gt(0), "Biden").otherwise("Trump"));
+                .filter(
+                        (col("biden_count").gt(0).and(col("trump_count").equalTo(0)))
+                                .or(col("trump_count").gt(0).and(col("biden_count").equalTo(0)))
+                )
+                .withColumn("voto", when(col("biden_count").gt(0), "Biden").otherwise("Trump"));
 
-        // Pivot per stato e conteggio voti utenti coerenti
+        // Conteggio per stato
         Dataset<Row> stateSummary = utentiCoerenti
                 .groupBy("state_clean")
-                .pivot("voto_utente", Arrays.asList("Biden", "Trump"))
-                .count()
-                .na().fill(0);
+                .agg(
+                        sum(when(col("voto").equalTo("Biden"), 1).otherwise(0)).as("Biden"),
+                        sum(when(col("voto").equalTo("Trump"), 1).otherwise(0)).as("Trump")
+                )
+                .orderBy("state_clean");
 
-        // Calcolo vincitore ipotetico per stato
+        // Calcolo vincitore
         Dataset<Row> finalResults = stateSummary
                 .withColumn("Vincitore", when(col("Biden").gt(col("Trump")), "Biden").otherwise("Trump"))
-                .withColumn("Differenza", abs(col("Biden").minus(col("Trump"))))
-                .orderBy("state_clean");
+                .withColumn("Differenza", abs(col("Biden").minus(col("Trump"))));
+
         return finalResults;
     }
 }

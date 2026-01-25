@@ -157,7 +157,7 @@ public class MainController {
                     result = BasicQuery.hashtagIntenzioniVoto(df);
                     populateTable(result);
                     Map<String, Number> pieDataVote = new LinkedHashMap<>();
-                    result.collectAsList().forEach(r -> pieDataVote.put(r.getAs("voto_utente"), (Number) r.getAs("tweet_count")));
+                    result.collectAsList().forEach(r -> pieDataVote.put(r.getAs("voto"), (Number) r.getAs("tweet_count")));
                     updatePieChart("Tweet per candidato (coerenti)", pieDataVote);
                     break;
 
