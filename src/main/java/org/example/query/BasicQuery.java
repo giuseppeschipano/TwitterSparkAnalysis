@@ -14,7 +14,7 @@ public class BasicQuery {
         System.out.println("\n--- ESECUZIONE QUERIES ---");
 
         numeroTotaleTweet(df);
-        distribuzioneTweetPerStato1(df);
+        distribuzioneTweetPerStato(df);
         andamentoGiornalieroTweet(df);
         topHashtag(df);
         topHashtagPerStato(df);
@@ -25,16 +25,16 @@ public class BasicQuery {
     }
 
     public static void numeroTotaleTweet(Dataset<Row> df) {
-        System.out.println("\n[TOTALE TWEET]");
         System.out.println("Numero di tweet considerati: " + df.count());
     }
 
-    public static Dataset<Row> distribuzioneTweetPerStato1(Dataset<Row> df) {
+    public static Dataset<Row> distribuzioneTweetPerStato(Dataset<Row> df) {
         Dataset<Row> filtered = df.filter(
                 col("location").isNotNull()
                         .and(not(col("location").equalTo("NaN")))
                         .and(length(trim(col("location"))).gt(0))
         );
+        //Normalizzazione dello stato
         Dataset<Row> normalized = filtered.withColumn("normalized_state",
                 when(col("location").rlike("(?i)AL|Alabama"), "Alabama")
                         .when(col("location").rlike("(?i)AK|Alaska"), "Alaska")
@@ -88,6 +88,7 @@ public class BasicQuery {
                         .when(col("location").rlike("(?i)WY|Wyoming"), "Wyoming")
                         .otherwise("Other")
         );
+        //Esclusione dei valori non riconducibili a stati USA e aggregazione finale
         Dataset<Row> result = normalized
                 .filter(col("normalized_state").notEqual("Other"))
                 .groupBy("normalized_state")
@@ -97,6 +98,7 @@ public class BasicQuery {
     }
 
 
+    //Analizza l'evoluzione quotidiana del volume dei tweet.
     public static Dataset<Row> andamentoGiornalieroTweet(Dataset<Row> df) {
         return df
                 .filter(col("created_at").isNotNull()
@@ -113,6 +115,7 @@ public class BasicQuery {
     }
 
 
+    //Estrazione dei 10 hastag più utilizzati
     public static Dataset<Row> topHashtag(Dataset<Row> dfTweets) {
         List<String> blacklist = Arrays.asList("etc", "nan", "na", "null", "none");
         Dataset<Row> top100 = dfTweets
@@ -208,7 +211,11 @@ public class BasicQuery {
         //Flag dei tweet per candidato
         Dataset<Row> flaggedTweets = df
                 .filter(col("hashtags").isNotNull().and(not(col("hashtags").equalTo("[]"))))
+
+                // Normalizza il campo hashtags: minuscolo e rimozione di caratteri non informativi
                 .withColumn("hashtags_clean", lower(regexp_replace(col("hashtags"), "[\\[\\]\"]", "")))
+
+       //verifica se uno qualsiasi degli hashtag del cluster è presente
                 .withColumn("isBiden",
                         array_contains(split(col("hashtags_clean"), ","), bidenTags.get(0))
                                 .or(array_contains(split(col("hashtags_clean"), ","), bidenTags.get(1)))
@@ -221,6 +228,7 @@ public class BasicQuery {
 
         // Aggregazione per candidato
         Dataset<Row> result = flaggedTweets
+                // Assegna etichetta "Biden" o "Trump" in base al flag
                 .withColumn("voto", when(col("isBiden"), "Biden").otherwise("Trump"))
                 .groupBy("voto")
                 .count()
@@ -277,7 +285,6 @@ public class BasicQuery {
 
     //volume
     public static Dataset<Row> evoluzioneTweetPerCandidato(Dataset<Row> dfTweets) {
-
         List<String> bidenTags = Arrays.asList("covid19", "bidenharris2020", "biden");
         List<String> trumpTags = Arrays.asList("trump", "maga", "trump2020");
 
@@ -387,7 +394,7 @@ public class BasicQuery {
                 .filter(col("state_clean").notEqual("Other"))
                 .filter(col("user_id_str").isNotNull());
 
-        // Flag dei tweet per candidato (senza explode)
+        // Flag dei tweet per candidato
         Dataset<Row> flaggedTweets = dfNormalized
                 .withColumn("hashtags_clean", lower(regexp_replace(col("hashtags"), "[\\[\\]\"]", "")))
                 .withColumn("isBiden",
@@ -400,7 +407,7 @@ public class BasicQuery {
                                 .or(array_contains(split(col("hashtags_clean"), ","), trumpTags.get(2))))
                 .filter(col("isBiden").notEqual(col("isTrump"))); // elimina tweet misti
 
-        // Identificazione utenti coerenti (1 utente = 1 voto)
+        // Identificazione utenti coerenti
         Dataset<Row> utentiCoerenti = flaggedTweets
                 .groupBy("user_id_str", "state_clean")
                 .agg(
@@ -426,7 +433,6 @@ public class BasicQuery {
         Dataset<Row> finalResults = stateSummary
                 .withColumn("Vincitore", when(col("Biden").gt(col("Trump")), "Biden").otherwise("Trump"))
                 .withColumn("Differenza", abs(col("Biden").minus(col("Trump"))));
-
         return finalResults;
     }
 }

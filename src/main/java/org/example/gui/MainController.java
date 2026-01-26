@@ -112,7 +112,7 @@ public class MainController {
                     break;
 
                 case "Distribuzione tweet per stato":
-                    result = BasicQuery.distribuzioneTweetPerStato1(df);
+                    result = BasicQuery.distribuzioneTweetPerStato(df);
                     populateTable(result);
                     Map<String, Number> map = new LinkedHashMap<>();
                     result.collectAsList().forEach(r -> map.put(r.getAs("normalized_state"), (Number) r.getAs("count")));
